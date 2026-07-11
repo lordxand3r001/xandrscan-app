@@ -131,14 +131,20 @@ export default function App() {
   const [histPage, setHistPage] = useState(1)
 
   // ── AUTH FLOW ──────────────────────────────────────────────────────
+  const withTimeout = (promise, ms, label) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out. Please try again.`)), ms)),
+    ])
+
   const signIn = useCallback(async () => {
     if (!address) return
     setSigning(true); setAuthErr('')
     try {
-      const { nonce, message } = await api('/auth-nonce', { wallet: address })
+      const { nonce, message } = await withTimeout(api('/auth-nonce', { wallet: address }), 15000, 'Nonce request')
       if (!nonce) throw new Error('Failed to get nonce')
-      const signature = await signMessageAsync({ message })
-      const result = await api('/auth-verify', { wallet: address, signature, nonce, chain: 'ethereum' })
+      const signature = await withTimeout(signMessageAsync({ message }), 90000, 'Wallet signature')
+      const result = await withTimeout(api('/auth-verify', { wallet: address, signature, nonce, chain: 'ethereum' }), 15000, 'Verification')
       if (result.sessionToken) {
         LS.set('xs_session', result.sessionToken)
         setSessionToken(result.sessionToken)
@@ -151,11 +157,10 @@ export default function App() {
     setSigning(false)
   }, [address, signMessageAsync])
 
-  // Auto sign-in when wallet connects
+  // Reset auth state when wallet disconnects (sign-in is now manually triggered
+  // via the "SIGN TO VERIFY WALLET" button below, not auto-fired, to avoid
+  // re-triggering the MetaMask deep link on every page reload)
   useEffect(() => {
-    if (isConnected && address && !sessionToken) {
-      signIn()
-    }
     if (!isConnected) {
       LS.del('xs_session')
       setSessionToken(null)
@@ -163,7 +168,7 @@ export default function App() {
       setUsage(null)
       setReport(null)
     }
-  }, [isConnected, address])
+  }, [isConnected])
 
   // Load user + usage when session exists
   useEffect(() => {
@@ -313,7 +318,12 @@ export default function App() {
           🔗  CONNECT WALLET
         </button>
       ) : signing ? (
-        <div style={{ fontSize:13, color:C.textM }}>⟳ Signing message to verify wallet...</div>
+        <div style={{ width:'100%', maxWidth:320 }}>
+          <div style={{ fontSize:13, color:C.textM, marginBottom:14 }}>⟳ Signing message to verify wallet...</div>
+          <button onClick={() => setSigning(false)} style={{ width:'100%', padding:'11px', borderRadius:9, background:'transparent', color:C.textM, border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>
+            CANCEL
+          </button>
+        </div>
       ) : (
         <div style={{ width:'100%', maxWidth:320 }}>
           <button onClick={signIn} style={{ width:'100%', padding:'15px', borderRadius:10, background:C.grad, color:'#fff', border:'none', cursor:'pointer', fontSize:12, fontWeight:'bold', letterSpacing:2, fontFamily:'inherit', marginBottom:10 }}>
