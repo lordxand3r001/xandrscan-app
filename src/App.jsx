@@ -44,11 +44,57 @@ const LS     = {
   del:  k    => { try { localStorage.removeItem(k) } catch {} },
 }
 
-const api = async (path, body) => {
-  const r = await fetch(`${WORKER}${path}`, {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body),
-  })
-  return r.json()
+// ─── NETWORK HELPERS ────────────────────────────────────────────────
+const withTimeout = (promise, ms, label) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out. Please try again.`)), ms)),
+  ])
+
+const isRelayError = (msg='') =>
+  msg.includes('Failed to publish payload') ||
+  msg.includes('Failed to fetch') ||
+  msg.includes('NetworkError') ||
+  msg.includes('RPC error') ||
+  msg.includes('relay') ||
+  msg.includes('timed out')
+
+const RELAY_MESSAGE = 'Connection unstable — this is common on some mobile networks. Try switching to WiFi, using a VPN, or retry in a moment.'
+
+const withRetry = async (fn, retries = 2, delayMs = 1500) => {
+  let lastErr
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn()
+    } catch (e) {
+      lastErr = e
+      if (!isRelayError(e.message || '') || attempt === retries) throw lastErr
+      await new Promise(res => setTimeout(res, delayMs))
+    }
+  }
+  throw lastErr
+}
+
+const api = async (path, body, { retries = 2, delayMs = 1500, timeoutMs = 20000 } = {}) => {
+  let lastErr
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const r = await withTimeout(
+        fetch(`${WORKER}${path}`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body),
+        }),
+        timeoutMs, 'Request'
+      )
+      return await r.json()
+    } catch (e) {
+      lastErr = e
+      if (!isRelayError(e.message || '') || attempt === retries) {
+        return { error: 'NETWORK_ERROR', message: e.message || RELAY_MESSAGE }
+      }
+      await new Promise(res => setTimeout(res, delayMs))
+    }
+  }
+  return { error: 'NETWORK_ERROR', message: lastErr?.message || RELAY_MESSAGE }
 }
 
 // ─── LOGO ─────────────────────────────────────────────────────────────
@@ -131,19 +177,15 @@ export default function App() {
   const [histPage, setHistPage] = useState(1)
 
   // ── AUTH FLOW ──────────────────────────────────────────────────────
-  const withTimeout = (promise, ms, label) =>
-    Promise.race([
-      promise,
-      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out. Please try again.`)), ms)),
-    ])
-
   const signIn = useCallback(async () => {
     if (!address) return
     setSigning(true); setAuthErr('')
     try {
       const { nonce, message } = await withTimeout(api('/auth-nonce', { wallet: address }), 15000, 'Nonce request')
       if (!nonce) throw new Error('Failed to get nonce')
-      const signature = await withTimeout(signMessageAsync({ message }), 90000, 'Wallet signature')
+      const signature = await withRetry(() =>
+        withTimeout(signMessageAsync({ message }), 90000, 'Wallet signature')
+      )
       const result = await withTimeout(api('/auth-verify', { wallet: address, signature, nonce, chain: 'ethereum' }), 15000, 'Verification')
       if (result.sessionToken) {
         LS.set('xs_session', result.sessionToken)
@@ -152,7 +194,8 @@ export default function App() {
         throw new Error(result.error || 'Verification failed')
       }
     } catch (e) {
-      setAuthErr(e.message || 'Signing failed. Please try again.')
+      const msg = e.message || ''
+      setAuthErr(isRelayError(msg) ? RELAY_MESSAGE : (msg || 'Signing failed. Please try again.'))
     }
     setSigning(false)
   }, [address, signMessageAsync])
@@ -194,6 +237,10 @@ export default function App() {
     setLoading(true); setErr(null); setReport(null); setDex(null)
     try {
       const data = await api('/scan', { wallet: address, sessionToken, address: addr.trim(), chain })
+      if (data.error === 'NETWORK_ERROR') {
+        setErr(data.message || RELAY_MESSAGE)
+        setLoading(false); return
+      }
       if (data.error === 'SCAN_LIMIT_REACHED') { setModal('paywall'); setLoading(false); return }
       if (data.error === 'WALLET_UNVERIFIED') {
         setErr(`Wallet not eligible: ${data.message}`)
@@ -209,7 +256,8 @@ export default function App() {
       setDex(data._raw?.dex || null)
       await refreshUsage()
     } catch (e) {
-      setErr('Analysis failed. Check the address and try again.')
+      const msg = e.message || ''
+      setErr(isRelayError(msg) ? RELAY_MESSAGE : 'Analysis failed. Check the address and try again.')
     }
     setLoading(false)
   }
