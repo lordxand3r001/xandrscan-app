@@ -21,13 +21,13 @@ const CHAINS = [
 ]
 
 const C = {
-  bg:'#08090D', surface:'#0E1420', surfaceB:'#111827',
-  border:'rgba(0,194,255,0.12)',
-  blue:'#00C2FF', purple:'#A855F7', gold:'#F59E0B',
-  text:'#F0F4FF', textM:'#94A3B8', textD:'#4A5568',
-  danger:'#FF4560', success:'#00E5A0',
-  grad:'linear-gradient(135deg,#00C2FF,#A855F7)',
-  gradFull:'linear-gradient(135deg,#00C2FF 0%,#A855F7 60%,#F59E0B 100%)',
+  bg:'#0A0B12', surface:'#131A2B', surfaceB:'#161D30',
+  border:'rgba(0,194,255,0.18)',
+  blue:'#00D9FF', purple:'#B966FF', gold:'#FFB020',
+  text:'#FFFFFF', textM:'#A8B5CC', textD:'#5A6B85',
+  danger:'#FF4560', success:'#00FFB2',
+  grad:'linear-gradient(135deg,#00D9FF,#B966FF)',
+  gradFull:'linear-gradient(135deg,#00D9FF 0%,#B966FF 55%,#FFB020 100%)',
 }
 
 const getRisk = s => {
@@ -349,9 +349,20 @@ export default function App() {
   // ── SPLASH ────────────────────────────────────────────────────────
   if (!isConnected || !sessionToken) return (
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Courier New',Monaco,monospace", display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 24px', textAlign:'center' }}>
+      <style>{`
+        @keyframes xs-pulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.15); opacity: 1; }
+        }
+        @keyframes xs-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       <div style={{ position:'relative', marginBottom:8 }}>
-        <div style={{ position:'absolute', inset:-20, borderRadius:'50%', background:'radial-gradient(circle,rgba(0,194,255,0.12) 0%,transparent 65%)', filter:'blur(10px)' }}/>
-        <div style={{ position:'relative', filter:'drop-shadow(0 0 20px rgba(0,194,255,0.55))' }}><Logo size={96}/></div>
+        <div style={{ position:'absolute', inset:-20, borderRadius:'50%', background:'conic-gradient(from 0deg, rgba(0,217,255,0.25), rgba(185,102,255,0.25), rgba(255,176,32,0.25), rgba(0,217,255,0.25))', filter:'blur(14px)', animation:'xs-spin 6s linear infinite' }}/>
+        <div style={{ position:'absolute', inset:-20, borderRadius:'50%', background:'radial-gradient(circle,rgba(0,217,255,0.18) 0%,transparent 65%)', filter:'blur(10px)', animation:'xs-pulse 2.4s ease-in-out infinite' }}/>
+        <div style={{ position:'relative', filter:'drop-shadow(0 0 20px rgba(0,217,255,0.55))' }}><Logo size={96}/></div>
       </div>
       <div style={{ fontSize:26, fontWeight:'bold', letterSpacing:7, marginTop:18, background:C.gradFull, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>XANDRSCAN</div>
       <div style={{ fontSize:10, color:C.textM, letterSpacing:4, marginTop:6 }}>AI TOKEN RISK INTELLIGENCE</div>
@@ -362,7 +373,7 @@ export default function App() {
       </div>
 
       {!isConnected ? (
-        <button onClick={() => open()} style={{ width:'100%', maxWidth:320, padding:'15px', borderRadius:10, background:C.grad, color:'#fff', border:'none', cursor:'pointer', fontSize:12, fontWeight:'bold', letterSpacing:2, boxShadow:'0 0 28px rgba(0,194,255,0.3)', fontFamily:'inherit' }}>
+        <button onClick={() => open()} style={{ width:'100%', maxWidth:320, padding:'15px', borderRadius:10, background:C.grad, color:'#fff', border:'none', cursor:'pointer', fontSize:12, fontWeight:'bold', letterSpacing:2, boxShadow:'0 0 28px rgba(0,217,255,0.3)', fontFamily:'inherit' }}>
           🔗  CONNECT WALLET
         </button>
       ) : signing ? (
