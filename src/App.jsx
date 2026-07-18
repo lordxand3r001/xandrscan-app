@@ -391,7 +391,10 @@ export default function App() {
           {authErr && <div style={{ fontSize:12, color:C.danger, lineHeight:1.7 }}>{authErr}</div>}
         </div>
       )}
-      <div style={{ marginTop:28, fontSize:10, color:C.textD }}>Built by <span style={{ color:C.blue }}>LØRD XAND3R</span> · Web3 Intelligence</div>
+
+      <div style={{ marginTop:24, maxWidth:300, fontSize:9, color:C.textD, letterSpacing:1, lineHeight:1.8 }}>
+        Not financial advice · Scans are probabilistic · DYOR
+      </div>
     </div>
   )
 
@@ -672,7 +675,7 @@ export default function App() {
                 )}
 
                 <div style={{ fontSize:9, color:C.textD, textAlign:'center', lineHeight:1.9, padding:8 }}>
-                  Confidence: {report.dataConfidence?.toUpperCase()} · Not financial advice.
+                  Confidence: {report.dataConfidence?.toUpperCase()} · Not financial advice · Scans are probabilistic · DYOR
                 </div>
               </div>
             )}
