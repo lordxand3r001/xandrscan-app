@@ -407,6 +407,63 @@ export default function App() {
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Courier New',Monaco,monospace" }}>
 
       {/* MODALS */}
+      {modal === 'share' && report && (
+        <div style={{ position:'fixed', inset:0, background:C.bg, zIndex:100, overflowY:'auto', display:'flex', flexDirection:'column' }}>
+          <div style={{ padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize:10, color:C.textM, letterSpacing:2 }}>SHARE CARD</div>
+            <button onClick={() => setModal(null)} style={{ background:'none', border:'none', color:C.textM, fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
+          </div>
+
+          <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'32px 20px' }}>
+            <div style={{ background:C.surface, border:`1px solid ${risk.color}44`, borderRadius:20, padding:'28px 22px', boxShadow:`0 0 40px ${risk.glow}` }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:20 }}>
+                <Logo size={26}/>
+                <div style={{ fontSize:15, fontWeight:'bold', letterSpacing:3, background:C.gradFull, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>XANDRSCAN</div>
+              </div>
+
+              <div style={{ fontSize:11, color:C.textM, letterSpacing:1, marginBottom:2 }}>{chain.toUpperCase()}</div>
+              <div style={{ fontSize:20, fontWeight:'bold', color:C.text, marginBottom:18 }}>{report.tokenName} <span style={{ color:C.textM, fontWeight:'normal' }}>({report.symbol})</span></div>
+
+              <div style={{ textAlign:'center', padding:'20px 0', background:risk.bg, borderRadius:14, marginBottom:18 }}>
+                <div style={{ fontSize:9, color:C.textM, letterSpacing:2, marginBottom:6 }}>RISK SCORE</div>
+                <div style={{ fontSize:48, fontWeight:'bold', color:risk.color, lineHeight:1 }}>{report.riskScore}</div>
+                <div style={{ fontSize:11, color:risk.color, letterSpacing:2, marginTop:6, fontWeight:'bold' }}>{risk.label}</div>
+              </div>
+
+              {(report.redFlags||[]).length > 0 && (
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:9, color:C.danger, letterSpacing:1.5, marginBottom:6 }}>🚩 RED FLAGS</div>
+                  {(report.redFlags||[]).slice(0,3).map((f,i) => (
+                    <div key={i} style={{ fontSize:11, color:C.textM, marginBottom:3, lineHeight:1.5 }}>• {f}</div>
+                  ))}
+                </div>
+              )}
+
+              {(report.greenLights||[]).length > 0 && (
+                <div style={{ marginBottom:6 }}>
+                  <div style={{ fontSize:9, color:C.success, letterSpacing:1.5, marginBottom:6 }}>✅ GREEN LIGHTS</div>
+                  {(report.greenLights||[]).slice(0,2).map((g,i) => (
+                    <div key={i} style={{ fontSize:11, color:C.textM, marginBottom:3, lineHeight:1.5 }}>• {g}</div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', marginTop:16, paddingTop:12, textAlign:'center' }}>
+                <div style={{ fontSize:9, color:C.textD, letterSpacing:1 }}>xandrscan.vercel.app</div>
+                <div style={{ fontSize:8, color:C.textD, marginTop:3 }}>Not financial advice · DYOR</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding:'0 20px 28px' }}>
+            <div style={{ fontSize:10, color:C.textM, textAlign:'center', marginBottom:14, letterSpacing:0.5 }}>Screenshot this card to share on X/CT</div>
+            <button onClick={shareReport} style={{ width:'100%', padding:13, borderRadius:10, background:copied?'rgba(0,229,160,0.08)':C.surfaceB, border:copied?'1px solid rgba(0,229,160,0.3)':'1px solid rgba(255,255,255,0.06)', color:copied?C.success:C.textM, cursor:'pointer', fontSize:10, letterSpacing:1.5, fontFamily:'inherit' }}>
+              {copied ? '✓ COPIED' : '📋 COPY AS TEXT INSTEAD'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {modal === 'paywall' && (
         <Overlay>
           <div style={{ display:'flex', justifyContent:'center', marginBottom:10 }}><Logo size={40}/></div>
@@ -660,8 +717,8 @@ export default function App() {
 
                 {/* ACTIONS */}
                 <div style={{ display:'flex', gap:8 }}>
-                  <button onClick={shareReport} style={{ flex:1, padding:13, borderRadius:10, background:copied?'rgba(0,229,160,0.08)':C.surfaceB, border:copied?'1px solid rgba(0,229,160,0.3)':'1px solid rgba(255,255,255,0.06)', color:copied?C.success:C.textM, cursor:'pointer', fontSize:10, letterSpacing:1.5, fontFamily:'inherit' }}>
-                    {copied ? '✓ COPIED' : '📤 SHARE'}
+                  <button onClick={() => setModal('share')} style={{ flex:1, padding:13, borderRadius:10, background:C.surfaceB, border:'1px solid rgba(255,255,255,0.06)', color:C.textM, cursor:'pointer', fontSize:10, letterSpacing:1.5, fontFamily:'inherit' }}>
+                    📤 SHARE
                   </button>
                   {user && ['starter','pro','alpha','owner'].includes(user.tier) && (
                     <button onClick={addToWatchlist} style={{ flex:1, padding:13, borderRadius:10, background:C.surfaceB, border:'1px solid rgba(255,255,255,0.06)', color:C.textM, cursor:'pointer', fontSize:10, letterSpacing:1.5, fontFamily:'inherit' }}>
