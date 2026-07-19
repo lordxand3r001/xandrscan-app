@@ -661,10 +661,12 @@ export default function App() {
                         {report.rugDNA.similarTokens.map((t,i) => (
                           <div key={i} style={{ background:C.bg, borderRadius:8, padding:10, marginBottom:6, border:'1px solid rgba(255,255,255,0.04)' }}>
                             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                              <span style={{ fontSize:12, color:C.text, fontWeight:'bold' }}>{t.name} ({t.symbol})</span>
+                              <span style={{ fontSize:12, color:C.text, fontWeight:'bold' }}>{t.name} {isRealValue(t.symbol) && `(${t.symbol})`}</span>
                               <span style={{ fontSize:11, color:C.purple }}>{t.similarityScore}% match</span>
                             </div>
-                            <div style={{ fontSize:10, color:C.textD }}>{(t.sharedFlags||[]).join(' · ')}</div>
+                            {t.riskScore != null && <div style={{ fontSize:10, color:C.textD, marginBottom:3 }}>Historical risk score: {t.riskScore}/100</div>}
+                            {t.matchReason && <div style={{ fontSize:10, color:C.textM, marginBottom:3 }}>{t.matchReason}</div>}
+                            {t.verdict && <div style={{ fontSize:10, color:C.textD, fontStyle:'italic' }}>"{t.verdict}"</div>}
                           </div>
                         ))}
                       </div>
