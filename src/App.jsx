@@ -422,7 +422,10 @@ export default function App() {
               </div>
 
               <div style={{ fontSize:11, color:C.textM, letterSpacing:1, marginBottom:2 }}>{chain.toUpperCase()}</div>
-              <div style={{ fontSize:20, fontWeight:'bold', color:C.text, marginBottom:18 }}>{report.tokenName} <span style={{ color:C.textM, fontWeight:'normal' }}>({report.symbol})</span></div>
+              <div style={{ fontSize:20, fontWeight:'bold', color:C.text, marginBottom:18 }}>
+                {report.tokenName && report.tokenName !== 'Unknown' ? report.tokenName : shortW(addr)}
+                {report.symbol && report.symbol !== 'Unknown' && <span style={{ color:C.textM, fontWeight:'normal' }}> ({report.symbol})</span>}
+              </div>
 
               <div style={{ textAlign:'center', padding:'20px 0', background:risk.bg, borderRadius:14, marginBottom:18 }}>
                 <div style={{ fontSize:9, color:C.textM, letterSpacing:2, marginBottom:6 }}>RISK SCORE</div>
