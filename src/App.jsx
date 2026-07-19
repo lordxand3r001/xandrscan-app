@@ -38,6 +38,7 @@ const getRisk = s => {
 
 const fmt    = n => Number(n||0).toLocaleString()
 const shortW = w => w ? `${w.slice(0,6)}...${w.slice(-4)}` : ''
+const isRealValue = v => !!v && !['unknown','???','n/a','null','undefined',''].includes(String(v).trim().toLowerCase())
 const LS     = {
   get:  k    => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):null } catch { return null } },
   set:  (k,v)=> { try { localStorage.setItem(k,JSON.stringify(v)) } catch {} },
@@ -423,8 +424,8 @@ export default function App() {
 
               <div style={{ fontSize:11, color:C.textM, letterSpacing:1, marginBottom:2 }}>{chain.toUpperCase()}</div>
               <div style={{ fontSize:20, fontWeight:'bold', color:C.text, marginBottom:18 }}>
-                {report.tokenName && report.tokenName !== 'Unknown' ? report.tokenName : shortW(addr)}
-                {report.symbol && report.symbol !== 'Unknown' && <span style={{ color:C.textM, fontWeight:'normal' }}> ({report.symbol})</span>}
+                {isRealValue(report.tokenName) ? report.tokenName : shortW(addr)}
+                {isRealValue(report.symbol) && <span style={{ color:C.textM, fontWeight:'normal' }}> ({report.symbol})</span>}
               </div>
 
               <div style={{ textAlign:'center', padding:'20px 0', background:risk.bg, borderRadius:14, marginBottom:18 }}>
