@@ -156,6 +156,7 @@ export default function App() {
   const [addr, setAddr]     = useState('')
   const [chain, setChain]   = useState('ethereum')
   const [loading, setLoading] = useState(false)
+  const [loadStep, setLoadStep] = useState(0)
   const [report, setReport] = useState(null)
   const [dex, setDex]       = useState(null)
   const [err, setErr]       = useState(null)
@@ -234,7 +235,7 @@ export default function App() {
   const analyze = async () => {
     if (!addr.trim() || !sessionToken) return
     if (usage && usage.remaining <= 0 && user?.tier !== 'owner') { setModal('paywall'); return }
-    setLoading(true); setErr(null); setReport(null); setDex(null)
+    setLoading(true); setErr(null); setReport(null); setDex(null); setLoadStep(0)
     try {
       const data = await api('/scan', { wallet: address, sessionToken, address: addr.trim(), chain })
       if (data.error === 'NETWORK_ERROR') {
@@ -261,6 +262,13 @@ export default function App() {
     }
     setLoading(false)
   }
+
+  const LOAD_STEPS = ['Fetching on-chain data...', 'Checking liquidity & holders...', 'Running Rug DNA analysis...', 'Generating summary...']
+  useEffect(() => {
+    if (!loading) return
+    const id = setInterval(() => setLoadStep(s => Math.min(s + 1, LOAD_STEPS.length - 1)), 2200)
+    return () => clearInterval(id)
+  }, [loading])
 
   // ── WATCHLIST ─────────────────────────────────────────────────────
   const addToWatchlist = async () => {
@@ -532,8 +540,12 @@ export default function App() {
 
             {loading && (
               <div style={{ textAlign:'center', padding:28, color:C.textD, fontSize:10, letterSpacing:2 }}>
-                <div style={{ color:C.blue, fontSize:22, marginBottom:8 }}>⟳</div>
-                FETCHING ON-CHAIN DATA<br/><span style={{ fontSize:9 }}>RUNNING RUG DNA ANALYSIS</span>
+                <style>{`@keyframes xs-scan-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                <div style={{ display:'inline-block', color:C.blue, fontSize:22, marginBottom:12, animation:'xs-scan-spin 1s linear infinite' }}>⟳</div>
+                <div style={{ color:C.textM, fontSize:11, letterSpacing:1, marginBottom:14, minHeight:16 }}>{LOAD_STEPS[loadStep]}</div>
+                <div style={{ width:'100%', maxWidth:220, height:3, background:C.surfaceB, borderRadius:2, margin:'0 auto', overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${((loadStep+1)/LOAD_STEPS.length)*100}%`, background:C.grad, borderRadius:2, transition:'width 0.5s ease' }}/>
+                </div>
               </div>
             )}
 
