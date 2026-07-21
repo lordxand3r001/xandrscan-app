@@ -176,6 +176,8 @@ export default function App() {
   const [history, setHistory]   = useState([])
   const [watchlist, setWatchlist] = useState([])
   const [histPage, setHistPage] = useState(1)
+  const [tgLink, setTgLink]     = useState(null)
+  const [tgLoading, setTgLoading] = useState(false)
 
   // ── AUTH FLOW ──────────────────────────────────────────────────────
   const signIn = useCallback(async () => {
@@ -291,6 +293,13 @@ export default function App() {
   const removeFromWatchlist = async (tokenAddress, tokenChain) => {
     await api('/watchlist/remove', { wallet: address, sessionToken, address: tokenAddress, chain: tokenChain })
     loadWatchlist()
+  }
+
+  const generateTelegramLink = async () => {
+    setTgLoading(true)
+    const result = await api('/telegram/link-code', { wallet: address, sessionToken })
+    if (result.deepLink) setTgLink(result)
+    setTgLoading(false)
   }
 
   // ── HISTORY ───────────────────────────────────────────────────────
@@ -784,6 +793,23 @@ export default function App() {
         {/* ── WATCHLIST VIEW ── */}
         {view === 'watchlist' && (
           <div>
+            {['alpha', 'owner'].includes(user?.tier) && (
+              <div style={{ background:C.surface, border:'1px solid rgba(255,255,255,0.05)', borderRadius:10, padding:14, marginBottom:12 }}>
+                {usage?.telegramLinked ? (
+                  <div style={{ fontSize:12, color:C.success }}>✅ Telegram linked — alerts go out when a watchlisted token's risk jumps</div>
+                ) : tgLink ? (
+                  <div>
+                    <a href={tgLink.deepLink} target="_blank" rel="noreferrer" style={{ fontSize:12, color:C.blue, textDecoration:'none' }}>Open Telegram to confirm →</a>
+                    <div style={{ fontSize:10, color:C.textD, marginTop:4 }}>Code expires in {tgLink.expiresInMinutes} min</div>
+                  </div>
+                ) : (
+                  <button onClick={generateTelegramLink} disabled={tgLoading}
+                    style={{ padding:'10px 16px', borderRadius:8, background:C.grad, color:'#fff', border:'none', cursor:'pointer', fontSize:10, letterSpacing:1, fontFamily:'inherit' }}>
+                    {tgLoading ? 'GENERATING...' : '🔗 LINK TELEGRAM FOR ALERTS'}
+                  </button>
+                )}
+              </div>
+            )}
             {!['starter','pro','alpha','owner'].includes(user?.tier) ? (
               <div style={{ textAlign:'center', padding:40 }}>
                 <div style={{ fontSize:14, color:C.textM, marginBottom:16 }}>Watchlist is a Starter+ feature.</div>
