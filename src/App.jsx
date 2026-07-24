@@ -183,12 +183,19 @@ export default function App() {
   const signIn = useCallback(async () => {
     if (!address) return
     setSigning(true); setAuthErr('')
+    let stage = 'Connecting to XANDRSCAN'
     try {
+      stage = 'Connecting to XANDRSCAN'
       const { nonce, message } = await withTimeout(api('/auth-nonce', { wallet: address }), 15000, 'Nonce request')
       if (!nonce) throw new Error('Failed to get nonce')
+
+      stage = 'Waiting on your wallet app'
       const signature = await withRetry(() =>
-        withTimeout(signMessageAsync({ message }), 90000, 'Wallet signature')
+        // 3 attempts (default retries=2) × 50s + 2 retry delays ≈ 153s (~2.6min) worst case
+        withTimeout(signMessageAsync({ message }), 50000, 'Wallet signature')
       )
+
+      stage = 'Verifying your signature'
       const result = await withTimeout(api('/auth-verify', { wallet: address, signature, nonce, chain: 'ethereum' }), 15000, 'Verification')
       if (result.sessionToken) {
         LS.set('xs_session', result.sessionToken)
@@ -198,7 +205,8 @@ export default function App() {
       }
     } catch (e) {
       const msg = e.message || ''
-      setAuthErr(isRelayError(msg) ? RELAY_MESSAGE : (msg || 'Signing failed. Please try again.'))
+      const base = isRelayError(msg) ? RELAY_MESSAGE : (msg || 'Signing failed. Please try again.')
+      setAuthErr(`[${stage}] ${base}`)
     }
     setSigning(false)
   }, [address, signMessageAsync])
@@ -715,42 +723,50 @@ export default function App() {
                 ) : report.holderAnalysis && (
                   <Surf>
                     <FL>👥 HOLDER ANALYSIS</FL>
-                    {report.holderAnalysis.concentrationTier && report.holderAnalysis.concentrationTier !== 'unknown' && (
-                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                        <div style={{
-                          fontSize:9, letterSpacing:1.5, padding:'4px 10px', borderRadius:6, fontWeight:'bold',
-                          color: {extreme:'#ff4d4d', high:'#ff9f45', moderate:'#ffd166', healthy:'#4ade80'}[report.holderAnalysis.concentrationTier],
-                          background: {extreme:'rgba(255,77,77,0.12)', high:'rgba(255,159,69,0.12)', moderate:'rgba(255,209,102,0.12)', healthy:'rgba(74,222,128,0.12)'}[report.holderAnalysis.concentrationTier],
-                        }}>
-                          {report.holderAnalysis.concentrationTier.toUpperCase()} CONCENTRATION
-                        </div>
-                        {report.holderAnalysis.top10Percent != null && (
-                          <div style={{ fontSize:10, color:C.textD }}>Top 10: {report.holderAnalysis.top10Percent.toFixed(1)}%</div>
+                    {(!report.holderAnalysis.topHolders || report.holderAnalysis.topHolders.length === 0) && !report.holderAnalysis.creatorAddress ? (
+                      <div style={{ fontSize:10, color:C.textD, fontStyle:'italic' }}>
+                        No holder data indexed for this token yet — common for very new or low-liquidity tokens. Try rescanning later.
+                      </div>
+                    ) : (
+                      <>
+                        {report.holderAnalysis.concentrationTier && report.holderAnalysis.concentrationTier !== 'unknown' && (
+                          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                            <div style={{
+                              fontSize:9, letterSpacing:1.5, padding:'4px 10px', borderRadius:6, fontWeight:'bold',
+                              color: {extreme:'#ff4d4d', high:'#ff9f45', moderate:'#ffd166', healthy:'#4ade80'}[report.holderAnalysis.concentrationTier],
+                              background: {extreme:'rgba(255,77,77,0.12)', high:'rgba(255,159,69,0.12)', moderate:'rgba(255,209,102,0.12)', healthy:'rgba(74,222,128,0.12)'}[report.holderAnalysis.concentrationTier],
+                            }}>
+                              {report.holderAnalysis.concentrationTier.toUpperCase()} CONCENTRATION
+                            </div>
+                            {report.holderAnalysis.top10Percent != null && (
+                              <div style={{ fontSize:10, color:C.textD }}>Top 10: {report.holderAnalysis.top10Percent.toFixed(1)}%</div>
+                            )}
+                          </div>
                         )}
-                      </div>
-                    )}
-                    {report.holderAnalysis.flags?.length > 0 && (
-                      <div style={{ marginBottom:10 }}>
-                        {report.holderAnalysis.flags.map((f,i) => (
-                          <div key={i} style={{ fontSize:10, color:'#ff9f45', marginBottom:4 }}>⚠️ {f}</div>
-                        ))}
-                      </div>
-                    )}
-                    {report.holderAnalysis.creatorAddress && (
-                      <div style={{ marginBottom:8 }}>
-                        <div style={{ fontSize:9, color:C.textD, marginBottom:3 }}>CREATOR</div>
-                        <div style={{ fontSize:10, color:C.textM }}>{report.holderAnalysis.creatorAddress.slice(0,12)}... holds {report.holderAnalysis.creatorPercent?.toFixed(2)}%</div>
-                      </div>
-                    )}
-                    {(report.holderAnalysis.topHolders||[]).slice(0,5).map((h,i) => {
-                      const isWhale = report.holderAnalysis.whaleWallets?.some(w => w.address === h.address)
-                      return (
-                        <div key={i} style={{ display:'flex', justifyContent:'space-between', borderBottom:'1px solid rgba(255,255,255,0.04)', paddingBottom:6, marginBottom:6 }}>
-                          <div style={{ fontSize:10, color:C.textD }}>{i+1}. {h.tag || (h.address||'').slice(0,10)}...{isWhale ? ' 🐋' : ''}</div>
-                          <div style={{ fontSize:10, color:C.textM }}>{h.percent || h.pct}%{h.isLocked?' 🔒':''}</div>
+                        {report.holderAnalysis.flags?.length > 0 && (
+                          <div style={{ marginBottom:10 }}>
+                            {report.holderAnalysis.flags.map((f,i) => (
+                              <div key={i} style={{ fontSize:10, color:'#ff9f45', marginBottom:4 }}>⚠️ {f}</div>
+                            ))}
+                          </div>
+                        )}
+                        {report.holderAnalysis.creatorAddress && (
+                          <div style={{ marginBottom:8 }}>
+                            <div style={{ fontSize:9, color:C.textD, marginBottom:3 }}>CREATOR</div>
+                            <div style={{ fontSize:10, color:C.textM }}>{report.holderAnalysis.creatorAddress.slice(0,12)}... holds {report.holderAnalysis.creatorPercent?.toFixed(2)}%</div>
+                          </div>
+                        )}
+                        {(report.holderAnalysis.topHolders||[]).slice(0,5).map((h,i) => {
+                          const isWhale = report.holderAnalysis.whaleWallets?.some(w => w.address === h.address)
+                          return (
+                            <div key={i} style={{ display:'flex', justifyContent:'space-between', borderBottom:'1px solid rgba(255,255,255,0.04)', paddingBottom:6, marginBottom:6 }}>
+                              <div style={{ fontSize:10, color:C.textD }}>{i+1}. {h.tag || (h.address||'').slice(0,10)}...{isWhale ? ' 🐋' : ''}</div>
+                              <div style={{ fontSize:10, color:C.textM }}>{h.percent || h.pct}%{h.isLocked?' 🔒':''}</div>
                         </div>
                       )
                     })}
+                      </>
+                    )}
                   </Surf>
                 )}
 
