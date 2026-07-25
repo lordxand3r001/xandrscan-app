@@ -659,6 +659,33 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* DEPLOYER HISTORY — separate from the general risk score on purpose */}
+                {report.deployerHistory && (
+                  <div style={{
+                    background: report.deployerHistory.isMalicious ? 'rgba(255,69,96,0.08)' : 'rgba(0,194,255,0.05)',
+                    border: `1px solid ${report.deployerHistory.isMalicious ? 'rgba(255,69,96,0.3)' : 'rgba(0,194,255,0.15)'}`,
+                    borderRadius:11, padding:13
+                  }}>
+                    <FL style={{ color: report.deployerHistory.isMalicious ? C.danger : C.blue }}>🕵️ DEPLOYER HISTORY</FL>
+                    {report.deployerHistory.isMalicious && (
+                      <div style={{ fontSize:11, color:C.danger, marginBottom:8, lineHeight:1.6 }}>
+                        ⚠️ This deployer wallet is flagged for known malicious activity ({report.deployerHistory.maliciousFlags.join(', ').replaceAll('_',' ')})
+                      </div>
+                    )}
+                    {report.deployerHistory.otherTokensCount > 0 ? (
+                      <div style={{ fontSize:12, color:C.textM, lineHeight:1.6 }}>
+                        This wallet has deployed <b style={{ color:C.text }}>{report.deployerHistory.otherTokensCount}</b> other token{report.deployerHistory.otherTokensCount === 1 ? '' : 's'} we've scanned
+                        {report.deployerHistory.highRiskCount > 0 && (
+                          <> — <b style={{ color:C.danger }}>{report.deployerHistory.highRiskCount}</b> came back high-risk</>
+                        )}
+                        .
+                      </div>
+                    ) : (
+                      <div style={{ fontSize:11, color:C.textD }}>No other tokens from this deployer in our scan history yet.</div>
+                    )}
+                  </div>
+                )}
+
                 {/* RUG DNA */}
                 {report.rugDNA?.locked ? (
                   <div style={{ background:'rgba(168,85,247,0.05)', border:'1px solid rgba(168,85,247,0.2)', borderRadius:11, padding:16, textAlign:'center' }}>
