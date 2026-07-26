@@ -683,6 +683,28 @@ export default function App() {
                     ) : (
                       <div style={{ fontSize:11, color:C.textD }}>No other tokens from this deployer in our scan history yet.</div>
                     )}
+                    {report.deployerHistory.funderAddress && (
+                      <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize:9, color:C.textD, marginBottom:4 }}>FUNDED BY</div>
+                        <div style={{ fontSize:11, color:C.textM, marginBottom:4 }}>{report.deployerHistory.funderAddress.slice(0,10)}...</div>
+                        {report.deployerHistory.funderIsMalicious && (
+                          <div style={{ fontSize:11, color:C.danger, marginBottom:4 }}>
+                            ⚠️ This funding wallet is flagged for known malicious activity ({report.deployerHistory.funderMaliciousFlags.join(', ').replaceAll('_',' ')})
+                          </div>
+                        )}
+                        {report.deployerHistory.funderOtherDeployersCount > 0 ? (
+                          <div style={{ fontSize:12, color:C.textM, lineHeight:1.6 }}>
+                            This wallet has funded <b style={{ color:C.text }}>{report.deployerHistory.funderOtherDeployersCount}</b> other deployer wallet{report.deployerHistory.funderOtherDeployersCount === 1 ? '' : 's'}
+                            {report.deployerHistory.funderHighRiskDeployersCount > 0 && (
+                              <> — <b style={{ color:C.danger }}>{report.deployerHistory.funderHighRiskDeployersCount}</b> went on to deploy high-risk tokens</>
+                            )}
+                            .
+                          </div>
+                        ) : (
+                          <div style={{ fontSize:11, color:C.textD }}>No other deployer wallets traced to this funder yet.</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
