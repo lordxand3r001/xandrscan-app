@@ -660,7 +660,7 @@ export default function App() {
                 </div>
 
                 {/* DEPLOYER HISTORY — separate from the general risk score on purpose */}
-                {report.deployerHistory && (
+                {report.deployerHistory ? (
                   <div style={{
                     background: report.deployerHistory.isMalicious ? 'rgba(255,69,96,0.08)' : 'rgba(0,194,255,0.05)',
                     border: `1px solid ${report.deployerHistory.isMalicious ? 'rgba(255,69,96,0.3)' : 'rgba(0,194,255,0.15)'}`,
@@ -706,9 +706,12 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                ) : (
+                  <div style={{ background:'#0E1420', border:'1px solid rgba(255,255,255,0.05)', borderRadius:11, padding:13 }}>
+                    <FL>🕵️ DEPLOYER HISTORY</FL>
+                    <div style={{ fontSize:11, color:C.textD }}>No deployer data indexed for this token yet — common for very new or low-liquidity tokens. Try rescanning later.</div>
+                  </div>
                 )}
-
-                {/* RUG DNA */}
                 {report.rugDNA?.locked ? (
                   <div style={{ background:'rgba(168,85,247,0.05)', border:'1px solid rgba(168,85,247,0.2)', borderRadius:11, padding:16, textAlign:'center' }}>
                     <div style={{ fontSize:12, color:C.purple, marginBottom:6 }}>🧬 RUG DNA LOCKED</div>
