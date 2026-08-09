@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppKit, useAppKitAccount } from '@reown/appkit/react'
 import { useSignMessage } from 'wagmi'
 
@@ -146,6 +146,12 @@ export default function App() {
 
   // Auth state
   const [sessionToken, setSessionToken] = useState(() => LS.get('xs_session'))
+  // Saved alongside sessionToken at sign-in time. Using this (instead of the
+  // live `address` from useAppKitAccount) for all authenticated API calls
+  // means the app works from a saved session even before — or without —
+  // WalletConnect's relay reconnect finishing on this page load.
+  const [savedWallet, setSavedWallet] = useState(() => LS.get('xs_wallet'))
+  const wallet = savedWallet || address
   const [signing, setSigning]           = useState(false)
   const [authErr, setAuthErr]           = useState('')
 
@@ -200,6 +206,8 @@ export default function App() {
       if (result.sessionToken) {
         LS.set('xs_session', result.sessionToken)
         setSessionToken(result.sessionToken)
+        LS.set('xs_wallet', address)
+        setSavedWallet(address)
       } else {
         throw new Error(result.error || 'Verification failed')
       }
@@ -214,10 +222,24 @@ export default function App() {
   // Reset auth state when wallet disconnects (sign-in is now manually triggered
   // via the "SIGN TO VERIFY WALLET" button below, not auto-fired, to avoid
   // re-triggering the MetaMask deep link on every page reload)
+  //
+  // isConnected starts false on every page load, before Reown AppKit finishes
+  // silently reconnecting the wallet — without this guard, that transient
+  // false wipes the saved session before reconnect even gets a chance to
+  // complete, forcing a fresh wallet sign-in on every visit. wasConnected
+  // only lets this fire on a *real* connected -> disconnected transition.
+  const wasConnected = useRef(false)
   useEffect(() => {
-    if (!isConnected) {
+    if (isConnected) {
+      wasConnected.current = true
+      return
+    }
+    if (wasConnected.current) {
+      wasConnected.current = false
       LS.del('xs_session')
+      LS.del('xs_wallet')
       setSessionToken(null)
+      setSavedWallet(null)
       setUser(null)
       setUsage(null)
       setReport(null)
@@ -226,18 +248,18 @@ export default function App() {
 
   // Load user + usage when session exists
   useEffect(() => {
-    if (!address || !sessionToken) return
-    api('/get-user', { wallet: address }).then(data => {
+    if (!wallet || !sessionToken) return
+    api('/get-user', { wallet }).then(data => {
       if (data.wallet_address) setUser(data)
     })
-    api('/usage', { wallet: address, sessionToken }).then(data => {
+    api('/usage', { wallet, sessionToken }).then(data => {
       if (data.tier) setUsage(data)
     })
-  }, [address, sessionToken])
+  }, [wallet, sessionToken])
 
   const refreshUsage = async () => {
-    if (!address || !sessionToken) return
-    const data = await api('/usage', { wallet: address, sessionToken })
+    if (!wallet || !sessionToken) return
+    const data = await api('/usage', { wallet, sessionToken })
     if (data.tier) setUsage(data)
   }
 
@@ -247,7 +269,7 @@ export default function App() {
     if (usage && usage.remaining <= 0 && user?.tier !== 'owner') { setModal('paywall'); return }
     setLoading(true); setErr(null); setReport(null); setDex(null)
     try {
-      const data = await api('/scan', { wallet: address, sessionToken, address: addr.trim(), chain })
+      const data = await api('/scan', { wallet, sessionToken, address: addr.trim(), chain })
       if (data.error === 'NETWORK_ERROR') {
         setErr(data.message || RELAY_MESSAGE)
         setLoading(false); return
@@ -259,6 +281,7 @@ export default function App() {
       }
       if (data.error === 'AUTH_REQUIRED') {
         setSessionToken(null); LS.del('xs_session')
+        setSavedWallet(null); LS.del('xs_wallet')
         setErr('Session expired. Please sign in again.')
         setLoading(false); return
       }
@@ -281,7 +304,7 @@ export default function App() {
   const addToWatchlist = async () => {
     if (!report || !sessionToken) return
     const result = await api('/watchlist/add', {
-      wallet: address, sessionToken,
+      wallet, sessionToken,
       address: addr.trim(), chain,
       tokenName: report.tokenName, symbol: report.symbol,
       riskScore: report.riskScore,
@@ -294,18 +317,18 @@ export default function App() {
 
   const loadWatchlist = async () => {
     if (!sessionToken) return
-    const data = await api('/watchlist/list', { wallet: address, sessionToken })
+    const data = await api('/watchlist/list', { wallet, sessionToken })
     if (data.watchlist) setWatchlist(data.watchlist)
   }
 
   const removeFromWatchlist = async (tokenAddress, tokenChain) => {
-    await api('/watchlist/remove', { wallet: address, sessionToken, address: tokenAddress, chain: tokenChain })
+    await api('/watchlist/remove', { wallet, sessionToken, address: tokenAddress, chain: tokenChain })
     loadWatchlist()
   }
 
   const generateTelegramLink = async () => {
     setTgLoading(true)
-    const result = await api('/telegram/link-code', { wallet: address, sessionToken })
+    const result = await api('/telegram/link-code', { wallet, sessionToken })
     if (result.deepLink) setTgLink(result)
     setTgLoading(false)
   }
@@ -313,7 +336,7 @@ export default function App() {
   // ── HISTORY ───────────────────────────────────────────────────────
   const loadHistory = async (page = 1) => {
     if (!sessionToken) return
-    const data = await api('/scan-history', { wallet: address, sessionToken, page, limit: 20 })
+    const data = await api('/scan-history', { wallet, sessionToken, page, limit: 20 })
     if (data.history) { setHistory(data.history); setHistPage(page) }
   }
 
@@ -326,7 +349,7 @@ export default function App() {
   const verifyPayment = async () => {
     if (!txHash.trim() || !selTier || !sessionToken) return
     setVfying(true); setVfMsg({ text:'', ok:false })
-    const data = await api('/verify-payment', { wallet: address, sessionToken, txHash: txHash.trim(), tier: selTier })
+    const data = await api('/verify-payment', { wallet, sessionToken, txHash: txHash.trim(), tier: selTier })
     if (data.success) {
       setVfMsg({ text:`✅ ${selTier.toUpperCase()} unlocked!`, ok:true })
       await refreshUsage()
@@ -348,7 +371,7 @@ export default function App() {
 
   const redeemCode = async () => {
     if (!sessionToken) return
-    const data = await api('/use-code', { wallet: address, sessionToken, code: codeIn.trim() })
+    const data = await api('/use-code', { wallet, sessionToken, code: codeIn.trim() })
     if (data.success) {
       setCodeMsg({ text:'👑 OWNER MODE UNLOCKED.', ok:true })
       await refreshUsage()
@@ -369,7 +392,7 @@ export default function App() {
   const cur  = TIERS[user?.tier] || TIERS.free
 
   // ── SPLASH ────────────────────────────────────────────────────────
-  if (!isConnected || !sessionToken) return (
+  if (!sessionToken) return (
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Courier New',Monaco,monospace", display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 24px', textAlign:'center' }}>
       <style>{`
         @keyframes xs-pulse {
