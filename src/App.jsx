@@ -45,6 +45,27 @@ const LS     = {
   del:  k    => { try { localStorage.removeItem(k) } catch {} },
 }
 
+// ─── APP-LOCK HELPERS ───────────────────────────────────────────────
+// Local-only re-entry gate on top of an already-valid session — never sent
+// to the backend, never tied to the account. See PIN/WebAuthn setup below.
+const sha256Hex = async str => {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+const b64uEncode = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+const b64uDecode = str => {
+  str = str.replace(/-/g, '+').replace(/_/g, '/')
+  while (str.length % 4) str += '='
+  const bin = atob(str)
+  const buf = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+  return buf.buffer
+}
+const isDeviceLockAvailable = async () => {
+  try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()) }
+  catch { return false }
+}
+
 // ─── NETWORK HELPERS ────────────────────────────────────────────────
 const withTimeout = (promise, ms, label) =>
   Promise.race([
@@ -152,6 +173,108 @@ export default function App() {
   // WalletConnect's relay reconnect finishing on this page load.
   const [savedWallet, setSavedWallet] = useState(() => LS.get('xs_wallet'))
   const wallet = savedWallet || address
+
+  // App-lock state — opt-in, local-only re-entry gate on top of the session.
+  const [lockMethod, setLockMethod] = useState(() => LS.get('xs_lock_method') || 'none')
+  const [unlocked, setUnlocked] = useState(() => {
+    const method = LS.get('xs_lock_method') || 'none'
+    return !(LS.get('xs_session') && method !== 'none')
+  })
+  const [deviceLockAvailable, setDeviceLockAvailable] = useState(false)
+  const [pinInput, setPinInput] = useState('')
+  const [pinSetupStage, setPinSetupStage] = useState('create') // 'create' | 'confirm'
+  const [pinFirstEntry, setPinFirstEntry] = useState('')
+  const [lockErr, setLockErr] = useState('')
+
+  useEffect(() => { isDeviceLockAvailable().then(setDeviceLockAvailable) }, [])
+
+  // Offer the lock setup once, only after a real session exists and only if
+  // the user hasn't already set one up or dismissed the offer before.
+  useEffect(() => {
+    if (sessionToken && unlocked && lockMethod === 'none' && LS.get('xs_lock_prompted') !== 1 && !modal) {
+      setModal('lock-setup')
+    }
+  }, [sessionToken, unlocked, lockMethod])
+
+  const setupWebAuthnLock = async () => {
+    setLockErr('')
+    try {
+      const cred = await navigator.credentials.create({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: { name: 'XANDRSCAN' },
+          user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'xandrscan-user', displayName: 'XANDRSCAN' },
+          pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
+          authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+          timeout: 60000,
+        }
+      })
+      LS.set('xs_lock_method', 'webauthn')
+      LS.set('xs_webauthn_id', b64uEncode(cred.rawId))
+      LS.set('xs_lock_prompted', 1)
+      setLockMethod('webauthn')
+      setModal(null)
+    } catch {
+      setLockErr('Could not set up device lock on this browser. Try a PIN instead, or skip.')
+    }
+  }
+
+  const setupPinLock = async pin => {
+    if (pinSetupStage === 'create') {
+      setPinFirstEntry(pin); setPinInput(''); setPinSetupStage('confirm'); return
+    }
+    if (pin !== pinFirstEntry) {
+      setLockErr("PINs didn't match — try again."); setPinInput(''); setPinFirstEntry(''); setPinSetupStage('create'); return
+    }
+    LS.set('xs_lock_method', 'pin')
+    LS.set('xs_pin_hash', await sha256Hex(pin))
+    LS.set('xs_lock_prompted', 1)
+    setLockMethod('pin')
+    setModal(null)
+    setPinInput(''); setPinFirstEntry(''); setPinSetupStage('create'); setLockErr('')
+  }
+
+  const skipLockSetup = () => { LS.set('xs_lock_prompted', 1); setModal(null) }
+
+  const unlockWithWebAuthn = async () => {
+    setLockErr('')
+    try {
+      const credId = LS.get('xs_webauthn_id')
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          allowCredentials: credId ? [{ id: b64uDecode(credId), type: 'public-key' }] : [],
+          userVerification: 'required',
+          timeout: 60000,
+        }
+      })
+      setUnlocked(true)
+    } catch {
+      setLockErr('Unlock failed or was cancelled. Try again.')
+    }
+  }
+
+  const unlockWithPin = async () => {
+    const hash = await sha256Hex(pinInput)
+    if (hash === LS.get('xs_pin_hash')) { setUnlocked(true); setPinInput(''); setLockErr('') }
+    else { setLockErr('Wrong PIN. Try again.'); setPinInput('') }
+  }
+
+  // Backfills xs_wallet for sessions that were created before this key existed
+  // (i.e. signed in before the session/wallet-persistence fix shipped) — without
+  // this, a perfectly valid session silently has no wallet attached to it.
+  useEffect(() => {
+    if (!sessionToken || savedWallet) return
+    api('/resolve-session', { sessionToken }).then(data => {
+      if (data.wallet) {
+        LS.set('xs_wallet', data.wallet)
+        setSavedWallet(data.wallet)
+      } else {
+        // Session itself is gone server-side — clear it so the sign-in screen shows.
+        LS.del('xs_session'); setSessionToken(null)
+      }
+    }).catch(() => {})
+  }, [sessionToken, savedWallet])
   const [signing, setSigning]           = useState(false)
   const [authErr, setAuthErr]           = useState('')
 
@@ -443,11 +566,55 @@ export default function App() {
     </div>
   )
 
+  // ── LOCK SCREEN ──────────────────────────────────────────────────
+  if (sessionToken && !unlocked) return (
+    <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Courier New',Monaco,monospace", display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 24px', textAlign:'center' }}>
+      <div style={{ filter:'drop-shadow(0 0 20px rgba(0,217,255,0.4))', marginBottom:18 }}><Logo size={72}/></div>
+      <div style={{ fontSize:13, color:C.textM, letterSpacing:3, marginBottom:28 }}>XANDRSCAN LOCKED</div>
+      {lockErr && <div style={{ fontSize:12, color:C.danger, marginBottom:14, maxWidth:280 }}>{lockErr}</div>}
+      <div style={{ width:'100%', maxWidth:280 }}>
+        {lockMethod === 'webauthn' ? (
+          <PBtn onClick={unlockWithWebAuthn}>🔒 UNLOCK</PBtn>
+        ) : (
+          <>
+            <AI type="password" inputMode="numeric" maxLength={6} value={pinInput}
+                onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="Enter PIN" style={{ textAlign:'center', letterSpacing:8 }}/>
+            <PBtn disabled={pinInput.length < 4} onClick={unlockWithPin}>UNLOCK</PBtn>
+          </>
+        )}
+      </div>
+    </div>
+  )
+
   // ── MAIN APP ──────────────────────────────────────────────────────
   return (
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Courier New',Monaco,monospace" }}>
 
       {/* MODALS */}
+      {modal === 'lock-setup' && (
+        <Overlay>
+          <MT>Lock This App?</MT>
+          <MS>
+            {pinSetupStage === 'confirm'
+              ? 'Confirm your PIN.'
+              : 'Add a quick unlock step so your saved session can\'t be opened by anyone who picks up your phone. Fully optional — skip anytime.'}
+          </MS>
+          {lockErr && <div style={{ fontSize:12, color:C.danger, marginBottom:10, textAlign:'center' }}>{lockErr}</div>}
+          {deviceLockAvailable && (
+            <PBtn onClick={setupWebAuthnLock}>🔒 USE DEVICE LOCK</PBtn>
+          )}
+          <AI type="password" inputMode="numeric" maxLength={6} value={pinInput}
+              onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+              placeholder={pinSetupStage === 'confirm' ? 'Confirm PIN' : '4–6 digit PIN'}
+              style={{ textAlign:'center', letterSpacing:8, marginTop:10 }}/>
+          <PBtn disabled={pinInput.length < 4} onClick={() => setupPinLock(pinInput)}>
+            {pinSetupStage === 'confirm' ? 'CONFIRM PIN' : 'SET PIN INSTEAD'}
+          </PBtn>
+          <GBtn onClick={skipLockSetup}>Skip for now</GBtn>
+        </Overlay>
+      )}
+
       {modal === 'share' && report && (
         <div style={{ position:'fixed', inset:0, background:C.bg, zIndex:100, overflowY:'auto', display:'flex', flexDirection:'column' }}>
           <div style={{ padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
