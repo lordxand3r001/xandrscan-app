@@ -392,7 +392,14 @@ export default function App() {
     if (usage && usage.remaining <= 0 && user?.tier !== 'owner') { setModal('paywall'); return }
     setLoading(true); setErr(null); setReport(null); setDex(null)
     try {
-      const data = await api('/scan', { wallet, sessionToken, address: addr.trim(), chain })
+      // /scan is a heavier multi-stage endpoint (GoPlus incl. its own rate-limit
+      // retries, DexScreener, AI cascade, deployer/funder tracing) than the other
+      // calls this helper serves — the 20s/2-retry default is tuned for lighter
+      // calls like /usage. A real backend timeout here isn't a flaky-relay issue
+      // that a same-shape retry would fix; retrying the full AI cascade again is
+      // unlikely to land faster and just multiplies AI cost for the same outcome,
+      // so only one retry, with more time to actually finish.
+      const data = await api('/scan', { wallet, sessionToken, address: addr.trim(), chain }, { timeoutMs: 30000, retries: 1 })
       if (data.error === 'NETWORK_ERROR') {
         setErr(data.message || RELAY_MESSAGE)
         setLoading(false); return
