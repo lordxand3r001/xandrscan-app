@@ -925,7 +925,7 @@ export default function App() {
                     {(report.rugDNA.patterns||[]).map((p,i) => <div key={i} style={{ fontSize:11, color:C.textM, marginBottom:6, lineHeight:1.6 }}>• {p}</div>)}
                     <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid rgba(168,85,247,0.12)', fontSize:11, color:C.textD, lineHeight:1.75, fontStyle:'italic' }}>{report.rugDNA.historicalVerdict}</div>
                     {report.rugDNA.timeRisk && <div style={{ marginTop:7, fontSize:10, color:C.purple }}>⏱ {report.rugDNA.timeRisk}</div>}
-                    {report.rugDNA.similarTokens?.length > 0 && (
+                    {report.rugDNA.similarTokens?.length > 0 ? (
                       <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid rgba(168,85,247,0.12)' }}>
                         <FL style={{ color:C.purple, marginBottom:8 }}>SIMILAR TOKENS FROM DATABASE</FL>
                         {report.rugDNA.similarTokens.map((t,i) => (
@@ -939,6 +939,11 @@ export default function App() {
                             {t.verdict && <div style={{ fontSize:10, color:C.textD, fontStyle:'italic' }}>"{t.verdict}"</div>}
                           </div>
                         ))}
+                      </div>
+                    ) : (
+                      <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid rgba(168,85,247,0.12)' }}>
+                        <FL style={{ color:C.purple, marginBottom:8 }}>SIMILAR TOKENS FROM DATABASE</FL>
+                        <div style={{ fontSize:11, color:C.textD, lineHeight:1.6 }}>No tokens with a similar risk profile have been confirmed as rugs yet — this doesn't mean this token is safe, just that there's no confirmed historical match to compare it to.</div>
                       </div>
                     )}
                   </div>
