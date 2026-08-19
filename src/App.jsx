@@ -20,6 +20,13 @@ const CHAINS = [
   { id:'solana',   label:'Solana'   },
 ]
 
+const EXPLORER_URL = {
+  ethereum: 'https://etherscan.io/address/',
+  base:     'https://basescan.org/address/',
+  bsc:      'https://bscscan.com/address/',
+  solana:   'https://solscan.io/account/',
+}
+
 const C = {
   bg:'#0A0B12', surface:'#131A2B', surfaceB:'#161D30',
   border:'rgba(0,194,255,0.18)',
@@ -290,6 +297,7 @@ export default function App() {
   const [dex, setDex]       = useState(null)
   const [err, setErr]       = useState(null)
   const [copied, setCopied] = useState(false)
+  const [copiedAddr, setCopiedAddr] = useState(null)
 
   // UI state
   const [view, setView]     = useState('scan') // scan | history | watchlist
@@ -517,6 +525,13 @@ export default function App() {
     const txt = `🔍 XANDRSCAN REPORT\n━━━━━━━━━━━━━━━━━━\nToken: ${report.tokenName} (${report.symbol})\nChain: ${chain.toUpperCase()}\nRisk Score: ${report.riskScore}/100 — ${rsk.label}\n\n"${report.verdict}"\n\n🚩 Red Flags:\n${(report.redFlags||[]).map(f=>`• ${f}`).join('\n')}\n\n✅ Green Lights:\n${(report.greenLights||[]).map(g=>`• ${g}`).join('\n')}\n\n⚡ ${report.actionableAdvice}\n\nScanned by XANDRSCAN · xandrscan.vercel.app\nNot financial advice.`
     navigator.clipboard.writeText(txt).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500) })
   }
+
+  const copyAddr = useCallback((address) => {
+    navigator.clipboard.writeText(address).then(() => {
+      setCopiedAddr(address)
+      setTimeout(() => setCopiedAddr(prev => prev === address ? null : prev), 2500)
+    })
+  }, [])
 
   const risk = report ? getRisk(report.riskScore) : null
   const cur  = TIERS[user?.tier] || TIERS.free
@@ -864,7 +879,7 @@ export default function App() {
                     borderRadius:11, padding:13
                   }}>
                     <FL style={{ color: report.deployerHistory.isMalicious ? C.danger : C.blue }}>🕵️ DEPLOYER HISTORY</FL>
-                    <div style={{ fontSize:11, color:C.textM, marginBottom:8 }}>{report.deployerHistory.deployerAddress.slice(0,10)}...</div>
+                    <div style={{ fontSize:11, color:C.textM, marginBottom:8 }}>{report.deployerHistory.deployerAddress.slice(0,10)}...<AddrTools address={report.deployerHistory.deployerAddress} chain={chain} copiedAddr={copiedAddr} onCopy={copyAddr} /></div>
                     {report.deployerHistory.isMalicious && (
                       <div style={{ fontSize:11, color:C.danger, marginBottom:8, lineHeight:1.6 }}>
                         ⚠️ This deployer wallet is flagged for known malicious activity ({report.deployerHistory.maliciousFlags.join(', ').replaceAll('_',' ')})
@@ -885,7 +900,7 @@ export default function App() {
                       <div style={{ fontSize:9, color:C.textD, marginBottom:4 }}>FUNDED BY</div>
                       {report.deployerHistory.funderAddress ? (
                         <>
-                          <div style={{ fontSize:11, color:C.textM, marginBottom:4 }}>{report.deployerHistory.funderAddress.slice(0,10)}...</div>
+                          <div style={{ fontSize:11, color:C.textM, marginBottom:4 }}>{report.deployerHistory.funderAddress.slice(0,10)}...<AddrTools address={report.deployerHistory.funderAddress} chain={chain} copiedAddr={copiedAddr} onCopy={copyAddr} /></div>
                           {report.deployerHistory.funderIsMalicious && (
                             <div style={{ fontSize:11, color:C.danger, marginBottom:4 }}>
                               ⚠️ This funding wallet is flagged for known malicious activity ({report.deployerHistory.funderMaliciousFlags.join(', ').replaceAll('_',' ')})
@@ -1012,14 +1027,14 @@ export default function App() {
                         {report.holderAnalysis.creatorAddress && (
                           <div style={{ marginBottom:8 }}>
                             <div style={{ fontSize:9, color:C.textD, marginBottom:3 }}>CREATOR</div>
-                            <div style={{ fontSize:10, color:C.textM }}>{report.holderAnalysis.creatorAddress.slice(0,12)}... holds {report.holderAnalysis.creatorPercent?.toFixed(2)}%</div>
+                            <div style={{ fontSize:10, color:C.textM }}>{report.holderAnalysis.creatorAddress.slice(0,12)}... holds {report.holderAnalysis.creatorPercent?.toFixed(2)}%<AddrTools address={report.holderAnalysis.creatorAddress} chain={chain} copiedAddr={copiedAddr} onCopy={copyAddr} /></div>
                           </div>
                         )}
                         {(report.holderAnalysis.topHolders||[]).slice(0,5).map((h,i) => {
                           const isWhale = report.holderAnalysis.whaleWallets?.some(w => w.address === h.address)
                           return (
                             <div key={i} style={{ display:'flex', justifyContent:'space-between', borderBottom:'1px solid rgba(255,255,255,0.04)', paddingBottom:6, marginBottom:6 }}>
-                              <div style={{ fontSize:10, color:C.textD }}>{i+1}. {h.tag || (h.address||'').slice(0,10)}...{isWhale ? ' 🐋' : ''}</div>
+                              <div style={{ fontSize:10, color:C.textD }}>{i+1}. {h.tag || (h.address||'').slice(0,10)}...{isWhale ? ' 🐋' : ''}<AddrTools address={h.address} chain={chain} copiedAddr={copiedAddr} onCopy={copyAddr} /></div>
                               <div style={{ fontSize:10, color:C.textM }}>{h.percent || h.pct}%{h.isLocked?' 🔒':''}</div>
                         </div>
                       )
@@ -1156,3 +1171,20 @@ function Overlay({ children })        { return <div style={{ position:'fixed', i
 function MT({ children })             { return <div style={{ fontSize:15, fontWeight:'bold', color:'#F0F4FF', marginBottom:5, textAlign:'center', letterSpacing:1 }}>{children}</div> }
 function MS({ children })             { return <div style={{ fontSize:12, color:'#94A3B8', marginBottom:18, textAlign:'center', lineHeight:1.7 }}>{children}</div> }
 function HC({ children, onClick, c }) { return <button onClick={onClick} style={{ fontSize:9, padding:'3px 9px', border:`1px solid ${c}22`, borderRadius:20, color:c, background:`${c}09`, cursor:'pointer', fontFamily:'inherit', letterSpacing:1.5 }}>{children}</button> }
+function AddrTools({ address, chain, copiedAddr, onCopy }) {
+  if (!address) return null
+  const url = EXPLORER_URL[chain]
+  const isCopied = copiedAddr === address
+  return (
+    <span style={{ display:'inline-flex', gap:8, marginLeft:7, verticalAlign:'middle' }}>
+      <span onClick={e => { e.stopPropagation(); onCopy(address) }} title="Copy address" style={{ cursor:'pointer', fontSize:11, opacity: isCopied ? 1 : 0.7 }}>
+        {isCopied ? '✅' : '📋'}
+      </span>
+      {url && (
+        <a href={`${url}${address}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} title="View on block explorer" style={{ fontSize:11, textDecoration:'none', opacity:0.7 }}>
+          🔗
+        </a>
+      )}
+    </span>
+  )
+}
