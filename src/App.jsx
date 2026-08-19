@@ -864,6 +864,7 @@ export default function App() {
                     borderRadius:11, padding:13
                   }}>
                     <FL style={{ color: report.deployerHistory.isMalicious ? C.danger : C.blue }}>🕵️ DEPLOYER HISTORY</FL>
+                    <div style={{ fontSize:11, color:C.textM, marginBottom:8 }}>{report.deployerHistory.deployerAddress.slice(0,10)}...</div>
                     {report.deployerHistory.isMalicious && (
                       <div style={{ fontSize:11, color:C.danger, marginBottom:8, lineHeight:1.6 }}>
                         ⚠️ This deployer wallet is flagged for known malicious activity ({report.deployerHistory.maliciousFlags.join(', ').replaceAll('_',' ')})
