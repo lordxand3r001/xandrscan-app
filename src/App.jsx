@@ -591,20 +591,36 @@ export default function App() {
   // ── LOCK SCREEN ──────────────────────────────────────────────────
   if (sessionToken && !unlocked) return (
     <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"'Courier New',Monaco,monospace", display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 24px', textAlign:'center' }}>
-      <div style={{ filter:'drop-shadow(0 0 20px rgba(0,217,255,0.4))', marginBottom:18 }}><Logo size={72}/></div>
-      <div style={{ fontSize:13, color:C.textM, letterSpacing:3, marginBottom:28 }}>XANDRSCAN LOCKED</div>
-      {lockErr && <div style={{ fontSize:12, color:C.danger, marginBottom:14, maxWidth:280 }}>{lockErr}</div>}
-      <div style={{ width:'100%', maxWidth:280 }}>
-        {lockMethod === 'webauthn' ? (
-          <PBtn onClick={unlockWithWebAuthn}>🔒 UNLOCK</PBtn>
-        ) : (
-          <>
-            <AI type="password" inputMode="numeric" maxLength={6} value={pinInput}
-                onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
-                placeholder="Enter PIN" style={{ textAlign:'center', letterSpacing:8 }}/>
-            <PBtn disabled={pinInput.length < 4} onClick={unlockWithPin}>UNLOCK</PBtn>
-          </>
-        )}
+      <style>{`
+        @keyframes xs-pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.15);opacity:1} }
+        @keyframes xs-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes xs-rise { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        .xs-lock-in { animation: xs-rise .6s cubic-bezier(.16,1,.3,1) both; }
+        .xs-lock-btn:active { transform:scale(0.97); }
+      `}</style>
+      <div className="xs-lock-in" style={{ display:'flex', flexDirection:'column', alignItems:'center', width:'100%' }}>
+        <div style={{ position:'relative', marginBottom:8 }}>
+          <div style={{ position:'absolute', inset:-20, borderRadius:'50%', background:'conic-gradient(from 0deg, rgba(0,217,255,0.25), rgba(185,102,255,0.25), rgba(255,176,32,0.25), rgba(0,217,255,0.25))', filter:'blur(14px)', animation:'xs-spin 6s linear infinite' }}/>
+          <div style={{ position:'absolute', inset:-20, borderRadius:'50%', background:'radial-gradient(circle,rgba(0,217,255,0.18) 0%,transparent 65%)', filter:'blur(10px)', animation:'xs-pulse 2.4s ease-in-out infinite' }}/>
+          <div style={{ position:'relative', filter:'drop-shadow(0 0 20px rgba(0,217,255,0.55))' }}><Logo size={72}/></div>
+        </div>
+        <div style={{ fontSize:22, fontWeight:'bold', letterSpacing:6, marginTop:16, background:C.gradFull, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>XANDRSCAN</div>
+        <div style={{ fontSize:9, padding:'4px 12px', border:`1px solid ${C.blue}28`, borderRadius:20, color:C.blue, background:`${C.blue}0d`, letterSpacing:2, marginTop:12, marginBottom:26 }}>
+          🔒 SESSION LOCKED
+        </div>
+        {lockErr && <div style={{ fontSize:12, color:C.danger, marginBottom:14, maxWidth:280 }}>{lockErr}</div>}
+        <div style={{ width:'100%', maxWidth:280 }}>
+          {lockMethod === 'webauthn' ? (
+            <PBtn onClick={unlockWithWebAuthn} className="xs-lock-btn">🔒 UNLOCK</PBtn>
+          ) : (
+            <>
+              <AI type="password" inputMode="numeric" maxLength={6} value={pinInput}
+                  onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter PIN" style={{ textAlign:'center', letterSpacing:8 }}/>
+              <PBtn disabled={pinInput.length < 4} onClick={unlockWithPin} className="xs-lock-btn">UNLOCK</PBtn>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -1165,7 +1181,7 @@ export default function App() {
 function Surf({ children, style={} }) { return <div style={{ background:'#0E1420', border:'1px solid rgba(255,255,255,0.05)', borderRadius:11, padding:13, ...style }}>{children}</div> }
 function FL({ children, style={} })   { return <div style={{ fontSize:9, color:'#4A5568', letterSpacing:2.5, marginBottom:8, textAlign:'left', ...style }}>{children}</div> }
 function AI({ style={}, ...props })   { return <input {...props} style={{ width:'100%', background:'#08090D', border:'1px solid rgba(0,194,255,0.18)', borderRadius:8, padding:'12px 14px', color:'#F0F4FF', fontFamily:'inherit', fontSize:13, outline:'none', boxSizing:'border-box', marginBottom:3, ...style }}/> }
-function PBtn({ children, onClick, disabled }) { return <button onClick={onClick} disabled={disabled} style={{ width:'100%', padding:13, borderRadius:9, background:disabled?'#111827':'linear-gradient(135deg,#00C2FF,#A855F7)', color:disabled?'#4A5568':'#fff', border:'none', cursor:disabled?'not-allowed':'pointer', fontSize:11, fontWeight:'bold', letterSpacing:2, fontFamily:'inherit', marginTop:12 }}>{children}</button> }
+function PBtn({ children, onClick, disabled, className }) { return <button onClick={onClick} disabled={disabled} className={className} style={{ width:'100%', padding:13, borderRadius:9, background:disabled?'#111827':'linear-gradient(135deg,#00C2FF,#A855F7)', color:disabled?'#4A5568':'#fff', border:'none', cursor:disabled?'not-allowed':'pointer', fontSize:11, fontWeight:'bold', letterSpacing:2, fontFamily:'inherit', marginTop:12 }}>{children}</button> }
 function GBtn({ children, onClick })  { return <button onClick={onClick} style={{ width:'100%', padding:10, borderRadius:9, background:'transparent', color:'#94A3B8', border:'1px solid rgba(255,255,255,0.07)', cursor:'pointer', fontSize:11, fontFamily:'inherit', marginTop:8 }}>{children}</button> }
 function Overlay({ children })        { return <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:100, padding:20, backdropFilter:'blur(6px)' }}><div style={{ background:'#0E1420', border:'1px solid rgba(0,194,255,0.18)', borderRadius:16, padding:'24px 20px', maxWidth:400, width:'100%', maxHeight:'90vh', overflowY:'auto' }}>{children}</div></div> }
 function MT({ children })             { return <div style={{ fontSize:15, fontWeight:'bold', color:'#F0F4FF', marginBottom:5, textAlign:'center', letterSpacing:1 }}>{children}</div> }
