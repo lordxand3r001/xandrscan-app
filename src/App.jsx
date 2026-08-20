@@ -145,23 +145,16 @@ function Logo({ size=40 }) {
           <stop offset="80%"  stopColor="#0066BB"/>
           <stop offset="100%" stopColor="#002877"/>
         </linearGradient>
-        <linearGradient id="lgSh" x1="0%" y1="0%" x2="30%" y2="100%">
-          <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.6"/>
-          <stop offset="28%"  stopColor="#FFFFFF" stopOpacity="0.15"/>
-          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0"/>
-        </linearGradient>
       </defs>
-      <circle cx="100" cy="100" r="88" fill="rgba(0,160,255,0.07)"/>
-      <polygon points="15,15 4,26 174,196 185,185 196,174 26,4"   fill="rgba(0,0,12,0.8)"/>
-      <polygon points="185,15 196,26 26,196 15,185 4,174 174,4"   fill="rgba(0,0,12,0.8)"/>
-      <polygon points="15,15 4,26 174,196 185,185 196,174 26,4"   fill="url(#lgM)"/>
-      <polygon points="15,15 4,26 174,196 185,185 196,174 26,4"   fill="url(#lgSh)"/>
-      <polygon points="185,15 196,26 26,196 15,185 4,174 174,4"   fill="url(#lgM)"/>
-      <polygon points="185,15 196,26 26,196 15,185 4,174 174,4"   fill="url(#lgSh)"/>
-      <path d="M 150,32 C 150,32 74,26 54,66 C 34,106 106,118 124,140 C 142,162 134,184 58,190" stroke="#003888" strokeWidth="50" strokeLinecap="round" fill="none"/>
-      <path d="M 150,32 C 150,32 74,26 54,66 C 34,106 106,118 124,140 C 142,162 134,184 58,190" stroke="url(#lgS)" strokeWidth="46" strokeLinecap="round" fill="none"/>
-      <path d="M 150,32 C 150,32 74,26 54,66 C 34,106 106,118 124,140 C 142,162 134,184 58,190" stroke="url(#lgSh)" strokeWidth="46" strokeLinecap="round" fill="none"/>
-      <path d="M 149,33 C 149,33 76,27 57,66 C 38,105 108,118 125,140" stroke="#B8F0FF" strokeWidth="3.5" strokeLinecap="round" fill="none" opacity="0.9"/>
+      {/* Two sharp crossed blades forming the X */}
+      <polygon points="8,8 92.9,107.1 192,192 107.1,92.9"   fill="url(#lgM)" stroke="#001845" strokeWidth="1.5"/>
+      <polygon points="192,8 107.1,107.1 8,192 92.9,92.9"   fill="url(#lgM)" stroke="#001845" strokeWidth="1.5"/>
+      {/* Bold S swoosh, square-cut ends for a forged-not-soft look */}
+      <path d="M 150,32 C 150,32 74,26 54,66 C 34,106 106,118 124,140 C 142,162 134,184 58,190" stroke="url(#lgS)" strokeWidth="34" strokeLinecap="square" fill="none"/>
+      {/* Specular highlight streak for the glossy metal read */}
+      <g transform="translate(-4,-4)">
+        <path d="M 150,32 C 150,32 74,26 54,66 C 34,106 106,118 124,140 C 142,162 134,184 58,190" stroke="#EAFBFF" strokeWidth="5" strokeLinecap="round" fill="none" opacity="0.55"/>
+      </g>
     </svg>
   )
 }
