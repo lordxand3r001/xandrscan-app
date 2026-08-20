@@ -150,6 +150,8 @@ function Logo({ size=40 }) {
       <polygon points="8,8 92.9,107.1 192,192 107.1,92.9"   fill="url(#lgM)" stroke="#001845" strokeWidth="1.5"/>
       <polygon points="192,8 107.1,107.1 8,192 92.9,92.9"   fill="url(#lgM)" stroke="#001845" strokeWidth="1.5"/>
       {/* Bold S swoosh, square-cut ends for a forged-not-soft look */}
+      {/* Clearance knockout so the blade behind can't intrude into the S's silhouette */}
+      <path d="M 150,32 C 150,32 74,26 54,66 C 34,106 106,118 124,140 C 142,162 134,184 58,190" stroke="#0A0B12" strokeWidth="46" strokeLinecap="square" fill="none"/>
       <path d="M 150,32 C 150,32 74,26 54,66 C 34,106 106,118 124,140 C 142,162 134,184 58,190" stroke="url(#lgS)" strokeWidth="34" strokeLinecap="square" fill="none"/>
       {/* Specular highlight streak for the glossy metal read */}
       <g transform="translate(-4,-4)">
