@@ -1126,10 +1126,10 @@ export default function App() {
           <>
             <Surf style={{ marginBottom:14 }}>
               <FL>URL OR WALLET ADDRESS</FL>
-              <AI value={checkQuery} onChange={e => setCheckQuery(e.target.value)} placeholder="Paste a URL or 0x address..." onKeyDown={e => e.key === 'Enter' && runCheck()} style={{ marginBottom:11 }}/>
+              <AI value={checkQuery} onChange={e => setCheckQuery(e.target.value)} placeholder="Paste a URL or wallet address..." onKeyDown={e => e.key === 'Enter' && runCheck()} style={{ marginBottom:11 }}/>
               <FL>CHAIN <span style={{ color:C.textD }}>(only matters for addresses)</span></FL>
               <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:13 }}>
-                {CHAINS.filter(c => c.id !== 'solana').map(c => (
+                {CHAINS.map(c => (
                   <button key={c.id} onClick={() => setCheckChain(c.id)}
                     style={{ padding:'6px 13px', borderRadius:7, cursor:'pointer', fontSize:10, letterSpacing:1.5, fontFamily:'inherit', border:checkChain===c.id?`1px solid ${C.blue}`:'1px solid rgba(255,255,255,0.06)', background:checkChain===c.id?'rgba(0,194,255,0.1)':C.surfaceB, color:checkChain===c.id?C.blue:C.textD }}>
                     {c.label}
