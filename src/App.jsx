@@ -294,6 +294,15 @@ export default function App() {
   const [copied, setCopied] = useState(false)
   const [copiedAddr, setCopiedAddr] = useState(null)
 
+  // Approval/phishing checker state — separate from the token scanner's
+  // addr/chain/report/loading/err above, deliberately not shared, since
+  // running one shouldn't clobber a result sitting in the other tab
+  const [checkQuery, setCheckQuery]     = useState('')
+  const [checkChain, setCheckChain]     = useState('ethereum')
+  const [checkLoading, setCheckLoading] = useState(false)
+  const [checkResult, setCheckResult]   = useState(null)
+  const [checkErr, setCheckErr]         = useState(null)
+
   // UI state
   const [view, setView]     = useState('scan') // scan | history | watchlist
   const [modal, setModal]   = useState(null)
@@ -431,6 +440,35 @@ export default function App() {
       setErr(isRelayError(msg) ? RELAY_MESSAGE : 'Analysis failed. Check the address and try again.')
     }
     setLoading(false)
+  }
+
+  const runCheck = async () => {
+    const q = checkQuery.trim()
+    if (!q) return
+    setCheckLoading(true); setCheckErr(null); setCheckResult(null)
+    try {
+      // No wallet/session required — /api/check-approval is free/no-auth,
+      // unlike /scan above. IP-rate-limited server-side instead.
+      const data = await api('/api/check-approval', { query: q, chain: checkChain }, { timeoutMs: 20000, retries: 1 })
+      if (data.error === 'NETWORK_ERROR') {
+        setCheckErr(data.message || RELAY_MESSAGE)
+        setCheckLoading(false); return
+      }
+      if (data.error === 'RATE_LIMITED') {
+        setCheckErr(data.message || 'Too many checks — wait a minute and try again.')
+        setCheckLoading(false); return
+      }
+      if (data.error === 'UNRECOGNIZED_INPUT') {
+        setCheckErr(data.message || 'Enter a URL or a wallet address (0x...).')
+        setCheckLoading(false); return
+      }
+      if (data.error) { setCheckErr(data.message || data.error); setCheckLoading(false); return }
+      setCheckResult(data)
+    } catch (e) {
+      const msg = e.message || ''
+      setCheckErr(isRelayError(msg) ? RELAY_MESSAGE : 'Check failed. Try again.')
+    }
+    setCheckLoading(false)
   }
 
   // ── WATCHLIST ─────────────────────────────────────────────────────
@@ -797,7 +835,7 @@ export default function App() {
 
       {/* NAV TABS */}
       <div style={{ display:'flex', borderBottom:'1px solid rgba(255,255,255,0.05)', background:C.surface }}>
-        {[['scan','🔍 SCAN'],['history','📋 HISTORY'],['watchlist','⭐ WATCHLIST']].map(([v,l]) => (
+        {[['scan','🔍 SCAN'],['check','🛡️ CHECK'],['history','📋 HISTORY'],['watchlist','⭐ WATCHLIST']].map(([v,l]) => (
           <button key={v} onClick={() => setView(v)}
             style={{ flex:1, padding:'10px', fontSize:10, letterSpacing:1.5, fontFamily:'inherit', border:'none', cursor:'pointer', background:'transparent', color:view===v?C.blue:C.textD, borderBottom:view===v?`2px solid ${C.blue}`:'2px solid transparent' }}>
             {l}
@@ -1080,6 +1118,85 @@ export default function App() {
                 </div>
               </div>
             )}
+          </>
+        )}
+
+        {/* ── CHECK VIEW (approval/phishing) ── */}
+        {view === 'check' && (
+          <>
+            <Surf style={{ marginBottom:14 }}>
+              <FL>URL OR WALLET ADDRESS</FL>
+              <AI value={checkQuery} onChange={e => setCheckQuery(e.target.value)} placeholder="Paste a URL or 0x address..." onKeyDown={e => e.key === 'Enter' && runCheck()} style={{ marginBottom:11 }}/>
+              <FL>CHAIN <span style={{ color:C.textD }}>(only matters for addresses)</span></FL>
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:13 }}>
+                {CHAINS.filter(c => c.id !== 'solana').map(c => (
+                  <button key={c.id} onClick={() => setCheckChain(c.id)}
+                    style={{ padding:'6px 13px', borderRadius:7, cursor:'pointer', fontSize:10, letterSpacing:1.5, fontFamily:'inherit', border:checkChain===c.id?`1px solid ${C.blue}`:'1px solid rgba(255,255,255,0.06)', background:checkChain===c.id?'rgba(0,194,255,0.1)':C.surfaceB, color:checkChain===c.id?C.blue:C.textD }}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={runCheck} disabled={checkLoading || !checkQuery.trim()}
+                style={{ width:'100%', padding:13, borderRadius:9, background:checkLoading?C.surfaceB:C.grad, color:checkLoading?C.textD:'#fff', border:checkLoading?'1px solid rgba(255,255,255,0.05)':'none', cursor:checkLoading?'not-allowed':'pointer', fontSize:11, fontWeight:'bold', letterSpacing:2.5, fontFamily:'inherit', boxShadow:!checkLoading?'0 0 24px rgba(0,194,255,0.22)':'none' }}>
+                {checkLoading ? '⟳  CHECKING...' : `🛡️  RUN CHECK`}
+              </button>
+            </Surf>
+
+            {checkLoading && (
+              <div style={{ textAlign:'center', padding:28, color:C.textD, fontSize:10, letterSpacing:2 }}>
+                <div style={{ color:C.blue, fontSize:22, marginBottom:8 }}>⟳</div>
+                CHECKING AGAINST KNOWN THREAT DATA
+              </div>
+            )}
+
+            {checkErr && <div style={{ background:'rgba(255,69,96,0.07)', border:'1px solid rgba(255,69,96,0.22)', borderRadius:9, padding:13, color:C.danger, fontSize:12, lineHeight:1.7, marginBottom:12 }}>{checkErr}</div>}
+
+            {checkResult && (() => {
+              // Three states, deliberately never collapsed into a plain
+              // safe/unsafe toggle — a clean result means "nothing found
+              // yet", not "confirmed safe". See computeApprovalVerdict in
+              // the backend for why.
+              const st = checkResult.verdict.state
+              const styleFor = {
+                known_malicious: { color: C.danger,  bg: 'rgba(255,69,96,0.07)',  border: 'rgba(255,69,96,0.25)',  label: '🚩 FLAGGED — KNOWN MALICIOUS' },
+                known_safe:      { color: C.success, bg: 'rgba(0,255,178,0.06)',  border: 'rgba(0,255,178,0.22)',  label: '✅ ON TRUSTED LIST' },
+                no_history:      { color: C.gold,     bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)',  label: '🕳️ NO HISTORY FOUND YET' },
+                unknown:         { color: C.textD,    bg: C.surfaceB,              border: 'rgba(255,255,255,0.06)', label: '⚠️ CHECK INCOMPLETE' },
+              }[st] || { color: C.textD, bg: C.surfaceB, border: 'rgba(255,255,255,0.06)', label: st }
+
+              return (
+                <div style={{ background: styleFor.bg, border: `1px solid ${styleFor.border}`, borderRadius: 12, padding: 18 }}>
+                  <div style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: 1.5, color: styleFor.color, marginBottom: 10 }}>{styleFor.label}</div>
+                  <div style={{ fontSize: 11, color: C.textM, marginBottom: 12, wordBreak: 'break-all' }}>
+                    {checkResult.query}
+                    <AddrTools address={checkResult.queryType === 'address' ? checkResult.query : null} chain={checkResult.chain} copiedAddr={copiedAddr} onCopy={copyAddr} />
+                  </div>
+                  {checkResult.narrative && (
+                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.7, marginBottom: checkResult.verdict.flags.length ? 12 : 0 }}>
+                      {checkResult.narrative}
+                    </div>
+                  )}
+                  {checkResult.verdict.flags.length > 0 && (
+                    <div>
+                      {checkResult.verdict.flags.map((f, i) => (
+                        <div key={i} style={{ fontSize: 10, color: styleFor.color, marginBottom: 4 }}>• {f.replace(/_/g, ' ')}</div>
+                      ))}
+                    </div>
+                  )}
+                  {(st === 'no_history' || st === 'unknown') && (
+                    <div style={{ fontSize: 9, color: C.textD, marginTop: 12, lineHeight: 1.6 }}>
+                      {st === 'no_history'
+                        ? 'This means nothing malicious has been reported yet — not that it\u2019s confirmed safe.'
+                        : 'The underlying check didn\u2019t return usable data, so no assessment could be made at all.'}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            <div style={{ fontSize:9, color:C.textD, textAlign:'center', lineHeight:1.9, padding:8 }}>
+              Not financial advice · Checks reflect known/reported activity only · DYOR
+            </div>
           </>
         )}
 
