@@ -458,6 +458,10 @@ export default function App() {
         setCheckErr(data.message || 'Too many checks — wait a minute and try again.')
         setCheckLoading(false); return
       }
+      if (data.error === 'PROVIDER_RATE_LIMITED') {
+        setCheckErr(data.message || 'The safety-check provider is currently rate-limited — try again shortly.')
+        setCheckLoading(false); return
+      }
       if (data.error === 'UNRECOGNIZED_INPUT') {
         setCheckErr(data.message || 'Enter a URL or a wallet address (0x...).')
         setCheckLoading(false); return
